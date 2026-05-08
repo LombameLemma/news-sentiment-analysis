@@ -1,0 +1,193 @@
+# News Sentiment Analysis - Task 1 Notebook
+# ==========================================
+# Exploratory Data Analysis + Text Analysis (NLP)
+
+# %% [markdown]
+# ## 1. Import Libraries
+
+# %%
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import re
+
+# %% [markdown]
+# ## 2. Load Dataset
+
+# %%
+df = pd.read_csv("../data/raw/news.csv")
+df.head()
+
+# %% [markdown]
+# ## 3. Data Cleaning
+
+# %%
+# Convert date column to datetime
+df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+# Drop missing values
+df = df.dropna(subset=['headline', 'publisher', 'date'])
+
+# %% [markdown]
+# ## 4. Headline Length Analysis
+
+# %%
+df['headline_length'] = df['headline'].astype(str).apply(len)
+
+df['headline_length'].describe()
+
+# %%
+plt.hist(df['headline_length'], bins=50)
+plt.title("Headline Length Distribution")
+plt.xlabel("Number of characters")
+plt.ylabel("Frequency")
+plt.show()
+
+# %% [markdown]
+# ## 5. Publisher Analysis
+
+# %%
+publisher_counts = df['publisher'].value_counts()
+publisher_counts.head(10)
+
+# %%
+publisher_counts.head(10).plot(kind='bar', figsize=(10,5))
+plt.title("Top 10 Publishers by Article Count")
+plt.xlabel("Publisher")
+plt.ylabel("Number of Articles")
+plt.xticks(rotation=45)
+plt.show()
+
+# %%
+publisher_counts.describe()
+
+# %% [markdown]
+# ### Publisher Domain Analysis (Email-based publishers)
+
+# %%
+def extract_domain(publisher):
+    if '@' in str(publisher):
+        return publisher.split('@')[-1]
+    return publisher
+
+
+df['publisher_domain'] = df['publisher'].apply(extract_domain)
+domain_counts = df['publisher_domain'].value_counts()
+
+# %%
+domain_counts.head(10)
+
+# %%
+domain_counts.head(10).plot(kind='bar', figsize=(10,5))
+plt.title("Top Publisher Domains")
+plt.xlabel("Domain")
+plt.ylabel("Number of Articles")
+plt.xticks(rotation=45)
+plt.show()
+
+# %% [markdown]
+# ## 6. Time Series Analysis of News Volume
+
+# %%
+df['date'] = pd.to_datetime(df['date'], errors='coerce')
+df = df.dropna(subset=['date'])
+
+df['date_only'] = df['date'].dt.date
+daily_counts = df.groupby('date_only').size()
+
+# %%
+plt.figure(figsize=(12,5))
+daily_counts.plot()
+plt.title("Daily News Volume Over Time")
+plt.xlabel("Date")
+plt.ylabel("Number of Articles")
+plt.show()
+
+# %%
+plt.figure(figsize=(12,5))
+daily_counts.rolling(7).mean().plot()
+plt.title("7-Day Moving Average of News Volume")
+plt.xlabel("Date")
+plt.ylabel("Smoothed Count")
+plt.show()
+
+# %%
+mean = daily_counts.mean()
+std = daily_counts.std()
+spikes = daily_counts[daily_counts > mean + 2*std]
+
+print("Spike Dates:")
+print(spikes)
+
+# %%
+plt.figure(figsize=(12,5))
+daily_counts.plot(label="News Volume")
+spikes.plot(style='ro', label="Spikes")
+plt.legend()
+plt.title("News Volume with Spikes Highlighted")
+plt.show()
+
+# %%
+df['hour'] = df['date'].dt.hour
+hourly_counts = df.groupby('hour').size()
+
+plt.figure(figsize=(10,5))
+hourly_counts.plot(kind='bar')
+plt.title("News Publication by Hour of Day")
+plt.xlabel("Hour")
+plt.ylabel("Number of Articles")
+plt.show()
+
+# %% [markdown]
+# ## 7. Text Analysis (NLP)
+
+# %%
+texts = df['headline'].astype(str).tolist()
+
+# %% [markdown]
+# ### 7.1 TF-IDF Keywords
+
+# %%
+tfidf = TfidfVectorizer(stop_words='english', max_features=20)
+X_tfidf = tfidf.fit_transform(texts)
+
+feature_names = tfidf.get_feature_names_out()
+pd.DataFrame(X_tfidf.toarray(), columns=feature_names).mean().sort_values(ascending=False)
+
+# %% [markdown]
+# ### 7.2 Common Phrases (N-grams)
+
+# %%
+bigram_vectorizer = CountVectorizer(ngram_range=(2,3), stop_words='english', max_features=20)
+X_ngrams = bigram_vectorizer.fit_transform(texts)
+
+ngram_features = bigram_vectorizer.get_feature_names_out()
+pd.DataFrame(X_ngrams.toarray(), columns=ngram_features).sum().sort_values(ascending=False)
+
+# %% [markdown]
+# ### 7.3 Topic Modeling (LDA)
+
+# %%
+lda_vectorizer = CountVectorizer(stop_words='english', max_df=0.95, min_df=2)
+X_lda = lda_vectorizer.fit_transform(texts)
+
+lda = LatentDirichletAllocation(n_components=5, random_state=42)
+lda.fit(X_lda)
+
+# %%
+def show_topics(model, feature_names, n_words=10):
+    for idx, topic in enumerate(model.components_):
+        print(f"\nTopic {idx+1}:")
+        print([feature_names[i] for i in topic.argsort()[-n_words:]])
+
+show_topics(lda, lda_vectorizer.get_feature_names_out())
+
+# %% [markdown]
+# ## 8. Key Insights
+# - Headlines are concise and moderately distributed
+# - A small number of publishers dominate news production
+# - Publisher domains reveal institutional news sources
+# - News volume shows spikes indicating major events
+# - Most news is published during active market hours
+# - Topics include earnings, price movements, and regulatory news
