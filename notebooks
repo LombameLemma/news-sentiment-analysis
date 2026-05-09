@@ -1,115 +1,432 @@
-# ==============================
-# STOCK TECHNICAL ANALYSIS PIPELINE
-# ==============================
+# ============================================
+# STOCK + NEWS SENTIMENT ANALYSIS PIPELINE
+# ============================================
 
+# ------------------------------
+# 1. IMPORT LIBRARIES
+# ------------------------------
 import pandas as pd
 import matplotlib.pyplot as plt
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # ------------------------------
-# 1. LOAD DATA
+# 2. LOAD STOCK DATA
 # ------------------------------
-df = pd.read_csv("../data/raw/stock_data.csv")
+stock_df = pd.read_csv("../data/raw/stock_data.csv")
 
-df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-df = df.sort_values('Date')
+# Convert dates
+stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
 
+# Sort by date
+stock_df = stock_df.sort_values('Date')
+
+# Convert numeric columns
 cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+
 for col in cols:
-    df[col] = pd.to_numeric(df[col], errors='coerce')
+    stock_df[col] = pd.to_numeric(
+        stock_df[col],
+        errors='coerce'
+    )
 
-df = df.fillna(method='ffill').dropna()
+# Handle missing values
+stock_df = stock_df.ffill().dropna()
 
-# ------------------------------
-# 2. PYNANCE FINANCIAL METRICS
-# ------------------------------
-import pynance as pn
-
-# Daily returns
-df['Returns'] = df['Close'].pct_change()
-
-# Volatility (rolling)
-df['Volatility_20'] = df['Returns'].rolling(20).std()
-
-# Cumulative returns
-df['Cumulative_Returns'] = (1 + df['Returns']).cumprod()
+# ============================================
+# TECHNICAL ANALYSIS
+# ============================================
 
 # ------------------------------
-# 3. MOVING AVERAGES (SMA + EMA)
+# 3. DAILY RETURNS
 # ------------------------------
-df['SMA_20'] = df['Close'].rolling(20).mean()
-df['SMA_50'] = df['Close'].rolling(50).mean()
-
-df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
-df['EMA_50'] = df['Close'].ewm(span=50, adjust=False).mean()
+stock_df['daily_return'] = stock_df['Close'].pct_change()
 
 # ------------------------------
-# 4. RSI (RELATIVE STRENGTH INDEX)
+# 4. VOLATILITY
 # ------------------------------
-delta = df['Close'].diff()
+stock_df['Volatility_20'] = (
+    stock_df['daily_return']
+    .rolling(20)
+    .std()
+)
 
-gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+# ------------------------------
+# 5. CUMULATIVE RETURNS
+# ------------------------------
+stock_df['Cumulative_Returns'] = (
+    1 + stock_df['daily_return']
+).cumprod()
+
+# ------------------------------
+# 6. MOVING AVERAGES
+# ------------------------------
+stock_df['SMA_20'] = (
+    stock_df['Close']
+    .rolling(20)
+    .mean()
+)
+
+stock_df['SMA_50'] = (
+    stock_df['Close']
+    .rolling(50)
+    .mean()
+)
+
+stock_df['EMA_20'] = (
+    stock_df['Close']
+    .ewm(span=20, adjust=False)
+    .mean()
+)
+
+stock_df['EMA_50'] = (
+    stock_df['Close']
+    .ewm(span=50, adjust=False)
+    .mean()
+)
+
+# ------------------------------
+# 7. RSI
+# ------------------------------
+delta = stock_df['Close'].diff()
+
+gain = (
+    delta.where(delta > 0, 0)
+    .rolling(14)
+    .mean()
+)
+
+loss = (
+    -delta.where(delta < 0, 0)
+    .rolling(14)
+    .mean()
+)
 
 rs = gain / loss
-df['RSI'] = 100 - (100 / (1 + rs))
+
+stock_df['RSI'] = 100 - (100 / (1 + rs))
 
 # ------------------------------
-# 5. MACD (MOMENTUM INDICATOR)
+# 8. MACD
 # ------------------------------
-df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
-df['EMA_26'] = df['Close'].ewm(span=26, adjust=False).mean()
+stock_df['EMA_12'] = (
+    stock_df['Close']
+    .ewm(span=12, adjust=False)
+    .mean()
+)
 
-df['MACD'] = df['EMA_12'] - df['EMA_26']
-df['MACD_signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-df['MACD_hist'] = df['MACD'] - df['MACD_signal']
+stock_df['EMA_26'] = (
+    stock_df['Close']
+    .ewm(span=26, adjust=False)
+    .mean()
+)
 
-# ==============================
-# VISUALIZATION SECTION
-# ==============================
+stock_df['MACD'] = (
+    stock_df['EMA_12']
+    - stock_df['EMA_26']
+)
+
+stock_df['MACD_signal'] = (
+    stock_df['MACD']
+    .ewm(span=9, adjust=False)
+    .mean()
+)
+
+stock_df['MACD_hist'] = (
+    stock_df['MACD']
+    - stock_df['MACD_signal']
+)
+
+# ============================================
+# VISUALIZATIONS
+# ============================================
 
 # ------------------------------
-# 6. PRICE + MOVING AVERAGES
+# 9. PRICE + MOVING AVERAGES
 # ------------------------------
 plt.figure(figsize=(14,6))
-plt.plot(df['Close'], label='Close Price')
-plt.plot(df['SMA_20'], label='SMA 20')
-plt.plot(df['SMA_50'], label='SMA 50')
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['Close'],
+    label='Close Price'
+)
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['SMA_20'],
+    label='SMA 20'
+)
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['SMA_50'],
+    label='SMA 50'
+)
+
 plt.title("Stock Price with Moving Averages")
+plt.xlabel("Date")
+plt.ylabel("Price")
 plt.legend()
 plt.show()
 
 # ------------------------------
-# 7. RSI PLOT
+# 10. RSI PLOT
 # ------------------------------
 plt.figure(figsize=(14,4))
-plt.plot(df['RSI'], label='RSI')
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['RSI'],
+    label='RSI'
+)
+
 plt.axhline(70, color='red', linestyle='--')
 plt.axhline(30, color='green', linestyle='--')
+
 plt.title("RSI Indicator")
+plt.xlabel("Date")
+plt.ylabel("RSI")
 plt.legend()
 plt.show()
 
 # ------------------------------
-# 8. MACD PLOT
+# 11. MACD PLOT
 # ------------------------------
 plt.figure(figsize=(14,5))
-plt.plot(df['MACD'], label='MACD')
-plt.plot(df['MACD_signal'], label='Signal Line')
-plt.bar(df.index, df['MACD_hist'], label='Histogram')
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['MACD'],
+    label='MACD'
+)
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['MACD_signal'],
+    label='Signal Line'
+)
+
+plt.bar(
+    stock_df['Date'],
+    stock_df['MACD_hist'],
+    label='Histogram'
+)
+
 plt.title("MACD Indicator")
+plt.xlabel("Date")
+plt.ylabel("MACD")
 plt.legend()
 plt.show()
 
 # ------------------------------
-# 9. VOLATILITY VISUALIZATION
+# 12. VOLATILITY PLOT
 # ------------------------------
 plt.figure(figsize=(14,5))
-plt.plot(df['Volatility_20'], label='20-day Volatility')
+
+plt.plot(
+    stock_df['Date'],
+    stock_df['Volatility_20'],
+    label='20-Day Volatility'
+)
+
 plt.title("Market Volatility")
+plt.xlabel("Date")
+plt.ylabel("Volatility")
 plt.legend()
 plt.show()
 
+# ============================================
+# NEWS SENTIMENT ANALYSIS
+# ============================================
+
 # ------------------------------
-# 10. FINAL CHECK
+# 13. LOAD NEWS DATA
 # ------------------------------
-df[['Date','Close','SMA_20','SMA_50','RSI','MACD']].tail()
+news_df = pd.read_csv("../data/raw/news_data.csv")
+
+# Convert news dates
+news_df['date'] = pd.to_datetime(
+    news_df['date'],
+    errors='coerce'
+)
+
+# ------------------------------
+# 14. NORMALIZE DATES
+# ------------------------------
+news_df['news_date'] = (
+    news_df['date']
+    .dt.date
+)
+
+stock_df['trading_date'] = (
+    stock_df['Date']
+    .dt.date
+)
+
+# Convert back to datetime
+news_df['news_date'] = pd.to_datetime(
+    news_df['news_date']
+)
+
+stock_df['trading_date'] = pd.to_datetime(
+    stock_df['trading_date']
+)
+
+# ------------------------------
+# 15. TRADING CALENDAR
+# ------------------------------
+trading_days = (
+    stock_df[['trading_date']]
+    .drop_duplicates()
+    .sort_values('trading_date')
+)
+
+# ------------------------------
+# 16. ALIGN NEWS TO TRADING DAYS
+# ------------------------------
+aligned_news = pd.merge_asof(
+    news_df.sort_values('news_date'),
+    trading_days.sort_values('trading_date'),
+    left_on='news_date',
+    right_on='trading_date',
+    direction='forward'
+)
+
+aligned_news.rename(
+    columns={
+        'trading_date': 'matched_trading_day'
+    },
+    inplace=True
+)
+
+# ============================================
+# SENTIMENT SCORING
+# ============================================
+
+# ------------------------------
+# 17. INITIALIZE SENTIMENT ANALYZER
+# ------------------------------
+analyzer = SentimentIntensityAnalyzer()
+
+# ------------------------------
+# 18. CALCULATE SENTIMENT SCORES
+# ------------------------------
+# Replace 'headline' with your actual column name if different
+
+aligned_news['sentiment'] = (
+    aligned_news['headline']
+    .astype(str)
+    .apply(
+        lambda x:
+        analyzer.polarity_scores(x)['compound']
+    )
+)
+
+# ============================================
+# DAILY SENTIMENT AGGREGATION
+# ============================================
+
+# ------------------------------
+# 19. DAILY AVERAGE SENTIMENT
+# ------------------------------
+daily_sentiment = (
+    aligned_news
+    .groupby('matched_trading_day')['sentiment']
+    .mean()
+    .reset_index()
+)
+
+daily_sentiment.rename(
+    columns={
+        'matched_trading_day': 'Date'
+    },
+    inplace=True
+)
+
+# ============================================
+# MERGE SENTIMENT + RETURNS
+# ============================================
+
+# ------------------------------
+# 20. PREPARE RETURNS DATA
+# ------------------------------
+returns_df = stock_df[['Date', 'daily_return']]
+
+# ------------------------------
+# 21. MERGE DATASETS
+# ------------------------------
+merged_df = pd.merge(
+    daily_sentiment,
+    returns_df,
+    on='Date',
+    how='inner'
+)
+
+# ============================================
+# CORRELATION ANALYSIS
+# ============================================
+
+# ------------------------------
+# 22. CALCULATE CORRELATION
+# ------------------------------
+correlation = merged_df['sentiment'].corr(
+    merged_df['daily_return']
+)
+
+print("\nCorrelation between Sentiment and Daily Returns:")
+print(correlation)
+
+# ============================================
+# VISUALIZE CORRELATION
+# ============================================
+
+# ------------------------------
+# 23. SCATTER PLOT
+# ------------------------------
+plt.figure(figsize=(8,5))
+
+plt.scatter(
+    merged_df['sentiment'],
+    merged_df['daily_return']
+)
+
+plt.title("Sentiment vs Daily Stock Returns")
+plt.xlabel("Sentiment Score")
+plt.ylabel("Daily Return")
+
+plt.show()
+
+# ============================================
+# INTERPRETATION
+# ============================================
+
+# ------------------------------
+# 24. INTERPRET RESULT
+# ------------------------------
+if correlation > 0:
+    print("\nPositive relationship detected.")
+elif correlation < 0:
+    print("\nNegative relationship detected.")
+else:
+    print("\nNo correlation detected.")
+
+# ============================================
+# FINAL OUTPUT CHECK
+# ============================================
+
+print("\nFinal Stock Data:")
+print(
+    stock_df[
+        [
+            'Date',
+            'Close',
+            'SMA_20',
+            'SMA_50',
+            'RSI',
+            'MACD'
+        ]
+    ].tail()
+)
+
+print("\nMerged Dataset:")
+print(merged_df.head())
