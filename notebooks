@@ -430,3 +430,137 @@ print(
 
 print("\nMerged Dataset:")
 print(merged_df.head())
+# Calculate daily stock returns (%)
+# ------------------------------
+
+# ------------------------------
+# 3. DAILY RETURNS (%)
+# ------------------------------
+stock_df['daily_return'] = (
+    (stock_df['Close'] - stock_df['Close'].shift(1))
+    / stock_df['Close'].shift(1)
+) * 100
+# ============================================
+# DAILY SENTIMENT AGGREGATION
+# ============================================
+
+daily_sentiment = (
+    aligned_news
+    .groupby('matched_trading_day')['sentiment']
+    .mean()
+    .reset_index()
+)
+
+daily_sentiment.rename(
+    columns={'matched_trading_day': 'Date'},
+    inplace=True
+)
+
+print(daily_sentiment.head())
+# ============================================
+# MERGE SENTIMENT + RETURNS
+# ============================================
+
+returns_df = stock_df[['Date', 'daily_return']]
+
+merged_df = pd.merge(
+    daily_sentiment,
+    returns_df,
+    on='Date',
+    how='inner'
+)
+
+print(merged_df.head())
+# ============================================
+# PEARSON CORRELATION
+# ============================================
+
+correlation = merged_df['sentiment'].corr(
+    merged_df['daily_return']
+)
+
+print("\nPearson Correlation Coefficient:")
+print(correlation)
+# ============================================
+# SCATTER PLOT
+# ============================================
+
+plt.figure(figsize=(8,5))
+
+plt.scatter(
+    merged_df['sentiment'],
+    merged_df['daily_return']
+)
+
+plt.title("Sentiment vs Daily Stock Returns")
+
+plt.xlabel("Average Daily Sentiment")
+plt.ylabel("Daily Stock Return (%)")
+
+# Annotate correlation value
+plt.text(
+    0.05,
+    0.95,
+    f'Correlation = {correlation:.4f}',
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top'
+)
+
+plt.show()
+# ============================================
+# SENTIMENT CLASSIFICATION
+# ============================================
+
+def classify_sentiment(score):
+
+    if score > 0.05:
+        return 'Positive'
+
+    elif score < -0.05:
+        return 'Negative'
+
+    else:
+        return 'Neutral'
+
+merged_df['sentiment_category'] = (
+    merged_df['sentiment']
+    .apply(classify_sentiment)
+)
+
+print(
+    merged_df[
+        ['Date', 'sentiment', 'sentiment_category']
+    ].head()
+)
+# ============================================
+# AVERAGE RETURN BY SENTIMENT CATEGORY
+# ============================================
+
+category_returns = (
+    merged_df
+    .groupby('sentiment_category')['daily_return']
+    .mean()
+)
+
+print(category_returns)
+# ============================================
+# BAR CHART
+# ============================================
+
+plt.figure(figsize=(7,5))
+
+category_returns.plot(
+    kind='bar'
+)
+
+plt.title(
+    "Average Daily Return by Sentiment Category"
+)
+
+plt.xlabel("Sentiment Category")
+plt.ylabel("Average Daily Return (%)")
+
+plt.xticks(rotation=0)
+
+plt.show()
