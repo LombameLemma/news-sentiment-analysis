@@ -1,5 +1,19 @@
-venv/
+# Python cache
 __pycache__/
-.ipynb_checkpoints/
 *.pyc
-data/raw/
+
+# Virtual environment
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# Data files
+data/raw/*.csv
+
+# OS files
+.DS_Store
+Thumbs.db
