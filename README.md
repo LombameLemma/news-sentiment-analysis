@@ -1,31 +1,17 @@
-# News Sentiment Analysis for Stock Price Prediction
+Financial News Sentiment & Stock Price Correlation
+🚀 Project Overview
+This project, developed for Nova Financial Solutions, aims to enhance investment strategies by analyzing the impact of news sentiment on stock market movements. By applying Natural Language Processing (NLP) to financial headlines and correlating the results with technical stock indicators, we identify predictive signals for market volatility.
 
-## Project Overview
-
-This project analyzes financial news headlines and stock market data
-to determine whether sentiment in news headlines can predict stock price movements.
-
-## Objectives
-
-- Perform sentiment analysis on financial headlines
-- Calculate stock returns and technical indicators
-- Analyze correlations between sentiment and returns
-- Build actionable investment insights
-
-## Project Structure
-
-- data/raw → raw datasets
-- notebooks → Jupyter notebooks for analysis
-- src → reusable Python modules
-- tests → testing files
-- scripts → helper scripts
-
-## Tools Used
-
-- Python
-- Pandas
-- NLTK
-- VADER Sentiment
-- TA
-- Matplotlib
-- Seaborn
+📁 Repository Structure
+notebooks/: Contains Jupyter Notebooks for EDA (eda_analysis.ipynb) and Technical Analysis.
+reports/: Documentation of findings, including the Interim Report.
+data/: (Ignored by Git) Raw data storage for news and stock CSVs.
+requirements.txt: List of dependencies required to replicate the environment.
+.github/: CI/CD workflows for automated testing.
+📊 Phase 1: Key Findings (Interim)
+News Volume Analysis: Identified a massive surge in news publication during the Q1 2020 pandemic onset, reaching nearly 1,000 articles per day.
+Publisher Insights: Dominated by institutional analyst-driven content from Benzinga, requiring sentiment normalization.
+Technical Indicators: Observed a "Death Cross" (SMA 20 crossing below SMA 50) coinciding with peak news volume in March 2020.
+🛠️ Setup & Installation
+Clone the Repo:
+git clone [https://github.com/](https://github.com/)[Your-Username]/news-sentiment-analysis.git
